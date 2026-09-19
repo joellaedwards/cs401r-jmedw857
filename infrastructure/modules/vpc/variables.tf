@@ -22,6 +22,12 @@ variable "public_subnet_cidr" {
   default     = "10.0.100.0/24"
 }
 
+variable "main_route_cidr" {
+  description = "CIDR for public route table"
+  type = string
+  default = "0.0.0.0/0"
+}
+
 variable "availability_zone" {
   description = "Availability Zone for the public subnet"
   type        = string
