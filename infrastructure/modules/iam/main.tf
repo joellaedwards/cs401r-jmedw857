@@ -25,12 +25,12 @@ data "aws_iam_policy_document" "assume_role" {
   }
 }
 
-resource "aws_iam_role" "MLEngineer" {
+resource "aws_iam_role" "ml_engineer" {
   name               = "${var.project}-${var.environment}-MLEngineer"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
 }
 
-resource "aws_iam_policy" "MLEngineer" {
+resource "aws_iam_policy" "ml_engineer" {
   name = "${var.project}-${var.environment}-MLEngineerPolicy"
 
   policy = jsonencode({
@@ -127,7 +127,7 @@ resource "aws_iam_policy" "MLEngineer" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "MLEngineer" {
-  role       = aws_iam_role.MLEngineer.name
-  policy_arn = aws_iam_policy.MLEngineer.arn
+resource "aws_iam_role_policy_attachment" "ml_engineer" {
+  role       = aws_iam_role.ml_engineer.name
+  policy_arn = aws_iam_policy.ml_engineer.arn
 }
