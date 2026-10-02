@@ -15,3 +15,9 @@ variable "prefixes" {
   type        = list(string)
   default     = ["raw/", "processed/", "features/", "artifacts/"]
 }
+
+variable "enable_lifecycle_rules" {
+  description = "Tells AWS to enable lifecycle rules for S3 bucket"
+  type        = bool
+  default     = true
+}

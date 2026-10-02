@@ -39,3 +39,13 @@ variable "sagemaker_instance_type" {
   type        = string
   default     = "ml.t3.medium"
 }
+
+variable "enable_nat_gateway" {
+  description = "Boolean for if we should enable nat gateway
+}
+
+variable "private_subnet_cidr" {
+  description = "String for the private subnet CIDR"
+  type = string
+  default = "10.0.1.0/24"
+}
