@@ -66,12 +66,12 @@ resource "aws_glue_job" "feature_engineer" {
   number_of_workers = 2
   connections       = [aws_glue_connection.this.name]
 
-default_arguments = {
-  "--input_path"         = "s3://${var.bucket_name}/processed/customers/"
-  "--output_path"        = "s3://${var.bucket_name}/features/customers/"
-  "--feature_group_name" = var.feature_group_name
-  "--region"             = var.aws_region
-}
+  default_arguments = {
+    "--input_path"         = "s3://${var.bucket_name}/processed/customers/"
+    "--output_path"        = "s3://${var.bucket_name}/features/customers/"
+    "--feature_group_name" = var.feature_group_name
+    "--region"             = var.aws_region
+  }
 
   command {
     name            = "glueetl"
