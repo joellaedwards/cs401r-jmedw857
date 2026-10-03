@@ -1,0 +1,5 @@
+== NorthStar Lab 1 — LocalStack validation ==
+date: 2026-10-03T07:08:02Z
+
+== terraform init ==
+/bin/sh: 6: terraform: not found

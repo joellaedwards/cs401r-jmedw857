@@ -41,11 +41,13 @@ variable "sagemaker_instance_type" {
 }
 
 variable "enable_nat_gateway" {
-  description = "Boolean for if we should enable nat gateway
+  description = "Boolean for if we should enable nat gateway"
+  type        = bool
+  default     = true
 }
 
 variable "private_subnet_cidr" {
   description = "String for the private subnet CIDR"
-  type = string
-  default = "10.0.1.0/24"
+  type        = string
+  default     = "10.0.1.0/24"
 }

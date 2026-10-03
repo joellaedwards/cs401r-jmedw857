@@ -24,7 +24,7 @@ resource "aws_sagemaker_domain" "this" {
 
   vpc_id                  = var.vpc_id
   subnet_ids              = var.subnet_ids
-  app_network_access_type = "PublicInternetOnly"
+  app_network_access_type = "VpcOnly"
 
   retention_policy {
     home_efs_file_system = "Delete"
