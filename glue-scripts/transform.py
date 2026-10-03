@@ -63,8 +63,27 @@ def cast_types(df):
     key for every downstream feature, so a row without it cannot be
     attributed to anyone.
     """
-    # TODO: your implementation here
-    raise NotImplementedError("cast_types is not implemented")
+    
+    for c in df.columns:
+        trimmed = F.trim(F.col(c).cast("string"))
+        # set to None if empty string
+        df = df.withColumn(c, F.when(trimmed == "", None).otherwise(trimmed))
+
+    # put into real date (ISO or US)
+    parsed = F.coalesce(
+        F.to_date(F.col("purchase_date"), "yyyy-MM-dd"),
+        F.to_date(F.col("purchase_date"), "MM/dd/yyyy")
+    )
+    # then replace data in the cell with the date type
+    df = df.withColumn("purchase_date", parsed)
+
+    for col_name, dtype in SCHEMA.items():
+        if col_name != "purchase_date":
+            df = df.withColumn(col_name, F.col(col_name).cast(dtype))
+
+    # drop where no customer id
+    return df.filter(F.col("customer_id").isNotNull())
+
 
 
 def impute_nulls(df):
@@ -79,8 +98,16 @@ def impute_nulls(df):
 
     Numeric columns: NUMERIC_COLS.  String columns: STRING_COLS.
     """
-    # TODO: your implementation here
-    raise NotImplementedError("impute_nulls is not implemented")
+
+    for colName in STRING_COLS:
+        df = df.fillna({colName: "unknown"})
+
+    for colName in NUMERIC_COLS: 
+        median = df.approxQuantile(colName, [0.5], 0.0)[0]
+        if colName == "num_items":
+            median = round(median)
+        df = df.fillna({colName: median})
+    return df
 
 
 def deduplicate(df):
@@ -101,8 +128,13 @@ def deduplicate(df):
     A window function with row_number() over a partition by transaction_id
     is the idiomatic approach.
     """
-    # TODO: your implementation here
-    raise NotImplementedError("deduplicate is not implemented")
+    # partitionBy --> get all the entries with the same transaction_id
+    w = Window.partitionBy("transaction_id").orderBy(F.col("purchase_date").desc(), F.col("order_value").desc())
+    return (
+        df.withColumn("rn", F.row_number().over(w))
+        .filter(F.col("rn") == 1)
+        .drop("rn")
+    )
 
 
 def main():
