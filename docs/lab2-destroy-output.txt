@@ -4,20 +4,28 @@
 [33m│[0m [0m[0mThe parameter "dynamodb_table" is deprecated. Use parameter "use_lockfile"
 [33m│[0m [0minstead.
 [33m╵[0m[0m
-[31m╷[0m[0m
-[31m│[0m [0m[1m[31mError: [0m[0m[1mMissing required argument[0m
-[31m│[0m [0m
-[31m│[0m [0m[0m  on main.tf line 39, in module "glue":
-[31m│[0m [0m  39: module "glue" [4m{[0m[0m
-[31m│[0m [0m
-[31m│[0m [0mThe argument "feature_engineer_script_path" is required, but no definition
-[31m│[0m [0mwas found.
-[31m╵[0m[0m
-[31m╷[0m[0m
-[31m│[0m [0m[1m[31mError: [0m[0m[1mMissing required argument[0m
-[31m│[0m [0m
-[31m│[0m [0m[0m  on main.tf line 39, in module "glue":
-[31m│[0m [0m  39: module "glue" [4m{[0m[0m
-[31m│[0m [0m
-[31m│[0m [0mThe argument "feature_group_name" is required, but no definition was found.
-[31m╵[0m[0m
+
+[0m[1m[32mNo changes.[0m[1m No objects need to be destroyed.[0m
+
+[0mEithe
+[0mEither you have not created any objects yet or the existing objects were
+already deleted outside of Terraform.
+[0m[1m[32m
+Destroy complete! Resources: 0 destroyed.[0m
+[4/7] Removing orphaned SageMaker Studio EFS filesystems
+[5/7] Removing orphaned ENIs and SageMaker NFS security groups
+[6/7] Removing orphaned SageMaker lineage contexts and artifacts
+[7/7] Verifying teardown
+      NAT gateways           OK
+      Elastic IPs            OK
+      SageMaker domains      OK
+      Feature groups         OK
+      EFS filesystems        OK
+      Glue jobs              OK
+      NorthStar VPCs         OK
+      Lineage contexts       OK
+      Lineage artifacts      OK
+      Glue databases         OK
+
+==> Teardown complete. No billable Lab 2 resources remain.
+    The Terraform state bucket is intentionally retained for Lab 3.

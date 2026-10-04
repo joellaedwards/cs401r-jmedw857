@@ -1,10 +1,10 @@
 NorthStar Lab 2 verification - account 860366539138, region us-east-1
 
 Task 1 - Platform infrastructure (25 pts)
-  PASS  private subnet exists                                subnet-0a887911b846d0a55
-  PASS  NAT gateway available                                nat-0f395479ed3333c3d
-  PASS  domain InService                                     d-epmmzypqzykd
-  PASS  domain in private subnet                             subnet-0a887911b846d0a55
+  PASS  private subnet exists                                subnet-0834494fbb19e72bc
+  PASS  NAT gateway available                                nat-0d2c5bf33b4734b69
+  PASS  domain InService                                     d-we6em6rrw0tk
+  PASS  domain in private subnet                             subnet-0834494fbb19e72bc
   PASS  domain AppNetworkAccessType VpcOnly                  
   PASS  IAM role MLEngineer exists                           
   PASS  IAM role DataEngineer exists                         
@@ -18,7 +18,7 @@ Task 2 - Data ingestion pipeline (25 pts)
   PASS  Glue catalog database northstar_dev                  
   PASS  crawler registered a table                           customers
   PASS  job northstar-dev-transform SUCCEEDED                
-  PASS  job northstar-dev-feature-engineer SUCCEEDED         
+  FAIL  job northstar-dev-feature-engineer SUCCEEDED         last run: FAILED
   PASS  processed/customers/ has Parquet                     4 file(s)
 
 Data quality - processed and features (Tasks 2 and 3)
@@ -26,14 +26,7 @@ Data quality - processed and features (Tasks 2 and 3)
   PASS  processed: 0 duplicate transaction_id                0 dups
   PASS  processed: all purchase_date parsed                  0 nulls
   PASS  processed: transaction-level grain preserved         157627 rows / 9999 customers
-  PASS  features: no null values                             0 nulls
-  PASS  features: one row per customer                       9999 rows / 9999 customers
-  PASS  features: churn_risk_score in [0,1]                  0.000 - 1.000
-  PASS  features: all 14 columns present                     
-  PASS  features: churn_label rate plausible (15-30%)        22.0%
-  PASS  features: label not trivially separable by recency   churner min recency 0 vs active max 315
-  PASS  features: all 4 loyalty tiers present                Bronze, Gold, Platinum, Silver
-  PASS  features: churn score non-degenerate                 181 distinct
+  FAIL  features Parquet readable                            no files downloaded
 
 Task 3 - Feature Store (20 pts)
   PASS  feature group Created                                northstar-dev-customer-features
@@ -42,20 +35,20 @@ Task 3 - Feature Store (20 pts)
   PASS  event_time is Fractional                             
   PASS  online store enabled                                 
   PASS  offline store points at data bucket                  
-  PASS  GetRecord returns a record                           16 features
+  FAIL  GetRecord returns a record                           empty - check event_time type and that the job ran
 
 Tasks 4 and 5 - Deliverables and repo quality (30 pts)
-  FAIL  docs/lab2-data-contract.md present                   missing
-  FAIL  docs/lab2-data-lineage.png present                   missing
+  PASS  docs/lab2-data-contract.md present                   
+  PASS  docs/lab2-data-lineage.png present                   
   PASS  docs/lab2-extend-output.txt present                  
   PASS  infrastructure/modules/glue/main.tf present          
   PASS  infrastructure/modules/feature_store/main.tf present 
   PASS  extend output shows Apply complete                   
-  FAIL  data contract has Schema section                     missing
-  FAIL  data contract has Quality Guarantee section          missing
-  FAIL  data contract has SLA section                        missing
-  FAIL  data contract has Versioning section                 missing
+  PASS  data contract has Schema section                     
+  PASS  data contract has Quality Guarantee section          
+  PASS  data contract has SLA section                        
+  PASS  data contract has Versioning section                 
   PASS  terraform fmt clean                                  
 
-Summary: 41 passed, 6 failed
+Summary: 37 passed, 3 failed
 Fix the FAIL items above before submitting.
