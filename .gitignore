@@ -9,3 +9,12 @@ __pycache__/
 *.zip
 .aws/
 .localstack/
+.env.*
+*.pem
+*.key
+.venv/
+venv/
+.ipynb_checkpoints/
+mlruns/
+mlartifacts/
+evaluation_results/
