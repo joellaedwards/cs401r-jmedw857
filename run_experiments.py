@@ -58,9 +58,9 @@ RUNS = [
     {
         "key": "run3",
         "name": "xgb-with-churn-risk-score",
-        "title": "Leakage check: add churn_risk_score",
+        "title": "Redundant feature: add churn_risk_score",
         "purpose": ("Feature ablation: same hyperparameters as run 1, but "
-                    "churn_risk_score (a pure recency heuristic) is added as a "
+                    "churn_risk_score is added as a "
                     "12th feature. Compare with run 1 to show what that feature "
                     "contributes; this is the with/without comparison the "
                     "report requires."),
@@ -256,7 +256,7 @@ def write_summary(results, args, path):
     L.append("")
     L.append("- Cite the run you actually graded; point at this file only for the "
              "run-to-run comparison.")
-    L.append("- For the leakage section: compare run 3 to run 1. If AUC barely moves "
+    L.append("- For the redundant-feature comparison: compare run 3 to run 1. If AUC barely moves "
              "or the lift over baseline shrinks, say why (the score is a recency "
              "heuristic, so it duplicates `days_since_last_purchase`).")
     L.append("- For the slice section: report n and positives for every tier, name "
