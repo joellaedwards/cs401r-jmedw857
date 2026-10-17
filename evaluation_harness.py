@@ -359,7 +359,9 @@ def build_bedrock_judge(model_id: str, region: str = "us-east-1"):
 
     llm = LangchainLLMWrapper(ChatBedrock(
         model_id=model_id, region_name=region,
-        model_kwargs={"temperature": 0},   # judging should be deterministic
+        # judging should be deterministic. max_tokens raised bc the default cut off
+        # the faithfulness verdicts on longer offers -> LLMDidNotFinish -> NaN
+        model_kwargs={"temperature": 0, "max_tokens": 4096},
     ))
     embeddings = LangchainEmbeddingsWrapper(BedrockEmbeddings(
         model_id="amazon.titan-embed-text-v2:0", region_name=region,
@@ -692,18 +694,18 @@ def main():
         print("Track B: Offer Generation RAG Evaluation")
         print("=" * 50)
 
-        # TODO: Wire up your actual RAG invocation function here.
-        # The function receives (customer_context: dict, question: str)
-        # and must return {"answer": str, "contexts": list[str]}
-        def placeholder_rag_fn(context, question):
-            """Replace this with your actual RAG system invocation."""
-            raise NotImplementedError(
-                "TODO: Replace this placeholder with your RAG system invocation.\n"
-                "The function should call your Bedrock + vector store pipeline\n"
-                "and return {'answer': str, 'contexts': list[str]}"
-            )
+        # my rag pipeline (offer_generation/rag_pipeline.py), default query AB
+        from offer_generation.rag_pipeline import OfferRAG
+        rag = OfferRAG(region=args.region)
 
-        evaluator = RAGEvaluator(rag_invoke_fn=placeholder_rag_fn,
+        # harness doesn't pass the customer id so look it up from the test cases
+        ids = {id(tc.customer_context): tc.customer_id for tc in OFFER_TEST_CASES}
+
+        def rag_fn(context, question):
+            cid = ids.get(id(context), "unknown")
+            return rag.generate({**context, "customer_id": cid}, question)
+
+        evaluator = RAGEvaluator(rag_invoke_fn=rag_fn,
                                  bedrock_model_id=args.bedrock_model_id,
                                  region=args.region)
         results = evaluator.run(OFFER_TEST_CASES)
