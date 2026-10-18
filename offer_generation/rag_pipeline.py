@@ -14,7 +14,7 @@ how to run (from repo root):
     python -m offer_generation.rag_pipeline --eval --query A      # compare queries (template 4)
     python -m offer_generation.rag_pipeline --eval --raw-signals  # no signal notes (template 2)
 
-needs: pip install boto3 numpy ragas datasets "langchain-community<0.4" langchain-aws
+needs: pip install boto3 numpy faiss-cpu ragas datasets "langchain-community<0.4" langchain-aws
 """
 
 import argparse
@@ -25,6 +25,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import boto3  # type: ignore[import-untyped]
+import faiss  # type: ignore[import-untyped]
 import numpy as np
 
 from offer_generation import prompts
@@ -68,11 +69,14 @@ def load_chunks(docs_dir: Path) -> list[dict]:
 
 
 class PolicyVectorStore:
-    # embeds every chunk once at startup and keeps it in memory (44 chunks)
+    # embeds every chunk once at startup into a local FAISS index (44 chunks).
+    # IndexFlatIP = exact inner-product search; vectors are normalized so that's cosine sim
     def __init__(self, docs_dir: Path, region: str):
         self.bedrock = boto3.client("bedrock-runtime", region_name=region)
         self.chunks = load_chunks(docs_dir)
-        self.matrix = np.vstack([self._embed(c["text"]) for c in self.chunks])
+        vectors = np.vstack([self._embed(c["text"]) for c in self.chunks])
+        self.index = faiss.IndexFlatIP(vectors.shape[1])
+        self.index.add(vectors)
 
     def _embed(self, text: str) -> np.ndarray:
         resp = self.bedrock.invoke_model(
@@ -82,9 +86,9 @@ class PolicyVectorStore:
         return np.array(json.loads(resp["body"].read())["embedding"], dtype=np.float32)
 
     def search(self, query: str, k: int = TOP_K, doc_ids: set | None = None) -> list[dict]:
-        scores = self.matrix @ self._embed(query)     # normalized so dot = cosine sim
-        order = np.argsort(-scores)
-        hits = [self.chunks[i] for i in order
+        # rank everything (only 44 chunks) so the doc_ids filter can't come up short
+        _, order = self.index.search(self._embed(query)[None, :], self.index.ntotal)
+        hits = [self.chunks[i] for i in order[0]
                 if doc_ids is None or self.chunks[i]["doc_id"] in doc_ids]
         return hits[:k]
 
@@ -145,6 +149,9 @@ class OfferRAG:
         # {answer, contexts} back. question isn't in the prompt but ragas uses for scoring
         contexts = [c["text"] for c in self.retrieve(customer)]
         system, user = self.build_messages(customer, contexts)
+        # the model is given the customer profile, so ragas gets it as a context too.
+        # otherwise every true fact about the customer scores as unsupported
+        contexts = contexts + [self.profile_text(customer)]
         resp = self.bedrock.converse(
             modelId=GENERATION_MODEL_ID,
             system=[{"text": system}],

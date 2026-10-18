@@ -1,0 +1,15 @@
+      SageMaker endpoints          OK
+      Endpoint configs             OK
+      Training jobs running        OK
+      Processing jobs              OK
+      MLflow TRACKING SERVERS      OK
+      AgentCore harnesses          CHECK FAILED (AWS call errored; credentials/region?)
+      AgentCore gateways           OK
+      AgentCore policy engines     OK
+      AgentCore runtimes           OK
+
+==> WARNING: teardown NOT verified. Fix anything marked STILL PRESENT or
+    CHECK FAILED and re-run. Do not submit this file as evidence.
+    An MLflow TRACKING SERVER is $0.60/hr. Delete it now:
+      aws sagemaker delete-mlflow-tracking-server --tracking-server-name <name>
+    Stopping is NOT deleting - a stopped server can be restarted and still holds storage.

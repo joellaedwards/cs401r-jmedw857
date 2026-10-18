@@ -142,7 +142,7 @@ never assert an upgrade has happened.
   cross-category discovery, another of: Apparel, Footwear, Home, Electronics,
   Beauty, Grocery, Toys, Outdoor). Never name a specific product.
 - If the context does not support a specific offer, say so rather than guessing.{grounding_rule}
-- Keep the offer to 3-5 sentences.
+- Keep the offer body to 2-3 sentences.
 - Always include: (1) a specific incentive, (2) a category the customer already
   buys, (3) a clear call to action.
 
@@ -154,6 +154,8 @@ never assert an upgrade has happened.
 # computed deterministically in interpret_signals(), so the model does not have to
 # guess that 0.20 online-to-store means "shipping perks are irrelevant".
 # Run with --raw-signals to evaluate the starter's uninterpreted version.
+# FIX: body length is 2-3 sentences (the lab spec's output), not the starter's
+# "one paragraph" / 3-5 sentences.
 
 PROFILE = """\
 ## Customer Profile
@@ -182,7 +184,7 @@ The offer must:
 
 Respond in this format:
 Subject: [subject line]
-Body: [one paragraph]
+Body: [2-3 sentences]
 Rationale: [one sentence on why this offer suits this customer]"""
 
 

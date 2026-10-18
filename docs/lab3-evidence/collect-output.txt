@@ -7,25 +7,25 @@
   OK    docs/lab3-evidence/slice-evaluation.csv
   OK    docs/lab3-evidence/confusion-matrix.png
   OK    docs/lab3-evidence/feature-importance.png
-  FAIL  docs/lab3-evaluation-report.md  --  missing or empty -- Task 1: the evaluation report
-  FAIL  docs/lab3-model-design.md  --  missing or empty -- Task 3: design justification (track declared at top)
+  OK    docs/lab3-evaluation-report.md
+  OK    docs/lab3-model-design.md
   OK    docs/bedrock-access-verification.txt
-  FAIL  notebooks/lab3-demo.ipynb  --  missing or empty -- Task 2: committed WITH outputs from one clean Restart & Run All
-  FAIL  docs/lab3-evidence/rag_eval.csv  --  missing or empty -- Task 2B: evaluation_harness.py --track B output, renamed
-  FAIL  docs/lab3-evidence/track-b-examples.md  --  missing or empty -- Task 2B: 5 input/output pairs + 2 failure cases with fixes
+  OK    notebooks/lab3-demo.ipynb
+  OK    docs/lab3-evidence/rag_eval.csv
+  OK    docs/lab3-evidence/track-b-examples.md
 [3/5] Content checks
   OK    gate precision_top10 >= 0.50
   OK    gate recall_top10 >= 0.25
   OK    gate lift 95% CI excludes zero
   OK    slice-evaluation.csv  --  4 tiers
+  OK    demo notebook  --  12 code cells, one clean run, 12 with output
+  OK    rag_eval.csv  --  16 test cases (harness has 4+)
 [4/5] AWS exports: Athena, MLflow, Model Registry
   OK    Athena query  --  39c5a098-c2b9-4ff8-9723-80449c0fd1d8 SUCCEEDED, 682219 bytes scanned
   OK    MLflow App reuses Lab 1 infrastructure  --  northstar-dev-MLEngineer, s3://northstar-dev-data-860366539138/artifacts/mlflow/
-  OK    MLflow runs  --  5 runs with params and metrics in 'northstar-churn'
-  OK    MLflow runs vary  --  n_features, include_churn_risk_score, max_depth, eta
-  OK    consistency: MLflow  --  a tracked run matches auc_roc=0.7829
+  FAIL  MLflow runs  --  search_runs failed: PERMISSION_DENIED: The IAM role associated with this MLflow app cannot be assumed by SageMaker. Verify the role exists and has a trust relationship allowing 'sagemaker.amazonaws.com' to assume it.
   OK    Model Registry  --  1 PendingManualApproval version(s); latest v1
   OK    consistency: registry  --  v1 metadata matches evaluation_metrics.json
 [5/5] Summary
-  18 OK, 0 WARN, 5 FAIL
+  22 OK, 0 WARN, 1 FAIL
   Fix every FAIL, re-run, then teardown -> commit -> tag.
