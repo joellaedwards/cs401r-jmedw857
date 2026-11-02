@@ -172,6 +172,12 @@ def train_model(X_train: np.ndarray,
         "scale_pos_weight": spw,
         "seed": 42,
         "verbosity": 1,
+        # Churn risk may only rise as days_since_last_purchase grows. Without it
+        # the XGBoost 1.7 container's model dipped 0.028 between 30 and 60 days
+        # and failed test_model_monotone_on_recency. Tuple-string form so 1.7
+        # parses it too.
+        "monotone_constraints": "(" + ",".join(
+            "1" if c == "days_since_last_purchase" else "0" for c in FEATURE_COLUMNS) + ")",
     }
 
     print(f"\nTraining XGBoost with params: {json.dumps(params, indent=2)}")

@@ -82,3 +82,9 @@ jupyter nbconvert --to notebook --execute --inplace lab3-demo.ipynb
 ```bash
 bash scripts/teardown-lab3.sh   # writes docs/lab3-teardown-output.txt
 ```
+
+## Lab 4: CI/CD
+
+### Changes from the Lab 3 model
+
+The pipeline's churn model (`models/churn/churn_model.py`) adds an XGBoost monotone constraint so churn risk can only rise with `days_since_last_purchase`: without it, the model trained in the XGBoost 1.7 container dipped between 30 and 60 days and failed `test_model_monotone_on_recency`, while metrics with the constraint stay within rounding of Lab 3 (AUC 0.782 vs 0.783 locally).
