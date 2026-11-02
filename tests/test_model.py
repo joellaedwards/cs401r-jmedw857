@@ -22,6 +22,7 @@ Run locally (after the local training run in the lab handout):
 
 import json
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -423,4 +424,72 @@ class TestStoredMetricsGate:
             f"Validation churn rate {rate:.1%} outside expected range [15%, 30%]. "
             f"The reference dataset measures 22.0%. Check that your validation "
             f"split is stratified."
+        )
+
+
+# ── Champion Regression Test ──────────────────────────────────────────────────
+
+MODEL_PACKAGE_GROUP = "northstar-churn-models"
+REGRESSION_TOLERANCE = 0.02   # candidate may be at most 0.02 AUC below the champion
+
+
+def _champion_auc(sm, s3, package_arn):
+    """AUC of a registered package: lineage metadata if present, else the
+    evaluation_metrics.json that ModelMetrics points at."""
+    pkg = sm.describe_model_package(ModelPackageName=package_arn)
+    meta = pkg.get("CustomerMetadataProperties", {})
+    if "auc_roc" in meta:
+        return float(meta["auc_roc"])
+    uri = pkg["ModelMetrics"]["ModelStatistics"]["S3Uri"]
+    bucket, _, key = uri[len("s3://"):].partition("/")
+    metrics = json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
+    return float(metrics["auc_roc"])
+
+
+class TestChampionRegression:
+    """The candidate must not regress more than 0.02 AUC below the champion.
+
+    The champion is the newest APPROVED package in the Model Registry. The
+    candidate under test was already registered as PendingManualApproval by
+    the SageMaker Pipeline, so filtering on Approved keeps it from being
+    compared against itself.
+    """
+
+    def test_auc_not_worse_than_champion(self):
+        boto3 = pytest.importorskip("boto3")
+        metrics_path = os.environ.get("EVAL_METRICS_PATH", "/tmp/eval_metrics.json")
+        if not Path(metrics_path).exists():
+            pytest.skip(f"Evaluation metrics not found at {metrics_path}.")
+        with open(metrics_path) as f:
+            new_auc = float(json.load(f)["auc_roc"])
+
+        region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        sm = boto3.client("sagemaker", region_name=region)
+        s3 = boto3.client("s3", region_name=region)
+
+        try:
+            approved = sm.list_model_packages(
+                ModelPackageGroupName=MODEL_PACKAGE_GROUP,
+                ModelApprovalStatus="Approved",
+                SortBy="CreationTime",
+                SortOrder="Descending",
+                MaxResults=1,
+            )["ModelPackageSummaryList"]
+        except sm.exceptions.ResourceNotFound:
+            approved = []
+        if not approved:
+            pytest.skip(f"No Approved package in {MODEL_PACKAGE_GROUP} yet - nothing to "
+                        f"compare against. Approve a green run's package to set a champion.")
+
+        champ = approved[0]
+        version = champ["ModelPackageVersion"]
+        champ_auc = _champion_auc(sm, s3, champ["ModelPackageArn"])
+
+        # Leave a record in the build log (buildspec runs this with -rw) of
+        # which champion the candidate was compared against.
+        warnings.warn(f"champion v{version} auc={champ_auc:.4f}; candidate auc={new_auc:.4f}")
+
+        assert new_auc >= champ_auc - REGRESSION_TOLERANCE, (
+            f"Candidate AUC {new_auc:.4f} regresses more than {REGRESSION_TOLERANCE} below "
+            f"champion v{version} (AUC {champ_auc:.4f}). Not promoting."
         )

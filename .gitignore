@@ -18,3 +18,5 @@ venv/
 mlruns/
 mlartifacts/
 evaluation_results/
+# HTML reports written by the global byu_pytest_utils plugin
+*_results.html

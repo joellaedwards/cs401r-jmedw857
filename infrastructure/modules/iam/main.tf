@@ -54,7 +54,13 @@ resource "aws_iam_policy" "ml_engineer" {
           "sagemaker:CreatePresignedMlflowAppUrl",
           "sagemaker:RegisterModel",
           "sagemaker:DescribeModelPackage",
-          "sagemaker:ListModelPackages"
+          "sagemaker:ListModelPackages",
+          "sagemaker:CreateModelPackageGroup",
+          "sagemaker:DescribeModelPackageGroup",
+          "sagemaker:CreateModelPackage",
+          "sagemaker:AddTags",
+          "sagemaker:ListTags",
+          "sagemaker:UpdateModelPackage"
         ]
         Resource = "*"
       },
@@ -122,6 +128,13 @@ resource "aws_iam_policy" "ml_engineer" {
           "ecr:GetAuthorizationToken"
         ]
         Resource = "*"
+      },
+      {
+        Sid       = "PassSelfToSageMaker"
+        Effect    = "Allow"
+        Action    = ["iam:PassRole"]
+        Resource  = aws_iam_role.ml_engineer.arn
+        Condition = { StringEquals = { "iam:PassedToService" = "sagemaker.amazonaws.com" } }
       }
     ]
   })

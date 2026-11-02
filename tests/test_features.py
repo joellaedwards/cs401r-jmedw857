@@ -16,6 +16,7 @@ controlled DataFrames — do not depend on the full synthetic dataset.
 from datetime import datetime, timedelta
 
 import os
+from pyexpat import features
 
 import numpy as np
 import pandas as pd
@@ -156,12 +157,12 @@ class TestRecencyFeatures:
         """Customer with no transactions should get a sentinel value (e.g., 999)."""
         empty_txns = pd.DataFrame(columns=["customer_id", "purchase_date", "order_value"])
         customer_ids = pd.DataFrame({"customer_id": ["CUST-NODATA"]})
+        features = compute_recency_features(empty_txns, SNAPSHOT_DATE, customer_ids)
+        assert len(features) == 1, "customer with no purchases should still get a row"
+        assert (features["days_since_last_purchase"] == 999).all(), (
+            "days_since_last_purchase should be 999 if user has no purchases"
+        )
 
-        # TODO: Your function should handle customers with no transactions
-        # Expected behavior: return days_since_last_purchase = 999 (or configurable sentinel)
-        # features = compute_recency_features(empty_txns, SNAPSHOT_DATE, customer_ids)
-        # assert features.iloc[0]["days_since_last_purchase"] == 999
-        pass
 
 
 # ── Frequency Feature Tests ────────────────────────────────────────────────────
@@ -286,8 +287,12 @@ class TestFullFeatureSet:
 
     def test_no_null_features_for_known_customers(self, sample_customers, sample_transactions):
         """
-        TODO: After filling missing values, no feature should be NaN for customers
-        who have at least one transaction. Document your null-filling strategy.
+        No feature should be NaN for customers who have at least one transaction.
+
+        Null-filling strategy: transform.py already removes raw nulls (median
+        order_value/num_items, 'unknown' category), so every feature is defined
+        for a customer with history. Roster customers with no purchases before T
+        get days_since_last_purchase = 999 and 0 for every other feature.
         """
         features = build_churn_feature_set(
             customers=sample_customers,
@@ -298,7 +303,10 @@ class TestFullFeatureSet:
         active_customer_ids = sample_transactions["customer_id"].unique()
         active_features = features[features["customer_id"].isin(active_customer_ids)]
         null_counts = active_features[self.REQUIRED_FEATURES].isna().sum()
-        # TODO: Assert null_counts.sum() == 0 (implement after deciding on null strategy)
+        assert len(active_features) == len(active_customer_ids), "known customers missing from output"
+        assert null_counts.sum() == 0, (
+            f"Null features for customers with transactions: {null_counts[null_counts > 0].to_dict()}"
+        )
 
     def test_output_has_customer_id_column(self, sample_customers, sample_transactions):
         features = build_churn_feature_set(
@@ -307,3 +315,46 @@ class TestFullFeatureSet:
             snapshot_date=SNAPSHOT_DATE,
         )
         assert "customer_id" in features.columns, "Output must include customer_id for joining"
+
+    def test_single_transaction_customer(self):
+        """Edge case: one purchase, 40 days before T. First and last purchase are
+        the same order, so several features collapse into each other."""
+        customers = pd.DataFrame({"customer_id": ["CUST-SINGLE"], "loyalty_tier": ["Bronze"],
+                                  "churn_label": [0]})
+        transactions = pd.DataFrame([{
+            "transaction_id": "TXN-SINGLE0001",
+            "customer_id": "CUST-SINGLE",
+            "purchase_date": (SNAPSHOT_DATE - timedelta(days=40)).isoformat(),
+            "order_value": 120.00,
+            "num_items": 3,
+            "payment_method": "credit_card",
+            "channel": "online",
+            "store_id": "ONLINE",
+            "product_category": "Home",
+        }])
+        features = build_churn_feature_set(
+            customers=customers,
+            transactions=transactions,
+            snapshot_date=SNAPSHOT_DATE,
+        )
+        assert len(features) == 1
+        row = features.iloc[0]
+
+        # recency == tenure: the only purchase is both the first and the last
+        assert row["days_since_last_purchase"] == 40
+        assert row["customer_tenure_days"] == row["days_since_last_purchase"]
+
+        # 40 days ago is outside 30d but inside 90d and 180d
+        assert row["purchase_frequency_30d"] == 0
+        assert row["purchase_frequency_90d"] == 1
+        assert row["purchase_frequency_180d"] == 1
+
+        # one order: average == total, and the basket is that order's item count
+        assert row["avg_order_value"] == pytest.approx(120.0)
+        assert row["total_lifetime_value"] == pytest.approx(row["avg_order_value"])
+        assert row["total_spend_90d"] == pytest.approx(120.0)
+        assert row["avg_basket_size_6m"] == pytest.approx(3.0)
+
+        # one category out of 8, and the single order was online
+        assert row["category_diversity_score"] == pytest.approx(1 / 8)
+        assert row["online_to_store_ratio"] == pytest.approx(1.0)

@@ -35,10 +35,13 @@ set ALLOW_MISSING_DATA=1 explicitly. Never make absence silent by default.
 
 import glob
 import os
+import time
 from pathlib import Path
 
 import pandas as pd
 import pytest
+
+from data.feature_engineering import compute_frequency_features, compute_recency_features
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -286,20 +289,58 @@ class TestFeatures:
             "you anchored to FEATURE_CUTOFF and not to today()"
         )
 
-    # TODO: Add a test proving no feature used post-cutoff data.
-    # Careful: processed/ CONTAINS the holdout purchases (after FEATURE_CUTOFF),
-    # because the label is built from them, so "every customer's max
-    # purchase_date is <= FEATURE_CUTOFF" is false on correct data. Test the
-    # FEATURES instead: recompute the time-sensitive ones (recency, tenure, the
-    # 30/90/180-day frequencies) from processed rows with purchase_date <=
-    # FEATURE_CUTOFF -- your data/feature_engineering.py functions do this --
-    # and assert they equal what the pipeline wrote to features/.
+    def test_no_feature_uses_post_cutoff_data(self, processed_df, features_df):
+        """Leakage check on the time-sensitive features.
 
-    # TODO: Add a freshness test. The pipeline should refuse to train on a
-    # feature set older than 48 hours. event_time is Fractional epoch seconds:
-    # the wall-clock time your Lab 2 feature job ran, NOT the cutoff T.
-    # Consequence: re-run the northstar-dev-feature-engineer Glue job (~90 s)
-    # before any session in which you will push, or this test fails the build.
+        processed/ still contains the holdout purchases (after FEATURE_CUTOFF),
+        because the label is built from them. So instead of checking dates,
+        recompute recency, tenure and the 30/90/180-day frequencies from the
+        observation window only, and require the pipeline's values to match.
+        If the Glue job had counted any post-cutoff purchase, a frequency would
+        be too high or a recency too low, and this would fail.
+        """
+        history = processed_df[pd.to_datetime(processed_df["purchase_date"]) <= FEATURE_CUTOFF]
+        expected = compute_recency_features(history, FEATURE_CUTOFF).merge(
+            compute_frequency_features(history, FEATURE_CUTOFF), on="customer_id")
+
+        cols = ["days_since_last_purchase", "customer_tenure_days", "purchase_frequency_30d",
+                "purchase_frequency_90d", "purchase_frequency_180d"]
+        merged = features_df[["customer_id"] + cols].merge(
+            expected, on="customer_id", suffixes=("_pipeline", "_expected"))
+        assert len(merged) == len(features_df), (
+            f"{len(features_df) - len(merged)} feature customers have no purchases "
+            f"on or before {FEATURE_CUTOFF.date()}"
+        )
+
+        for c in cols:
+            diff = (merged[f"{c}_pipeline"].astype(float) - merged[f"{c}_expected"]).abs()
+            bad = merged.loc[diff > 1e-6, "customer_id"]
+            assert bad.empty, (
+                f"{c} differs from a recompute over purchases <= {FEATURE_CUTOFF.date()} "
+                f"for {len(bad)} customers (e.g. {bad.iloc[0]}) - post-cutoff data leaked in"
+            )
+
+    def test_features_are_fresh(self, features_df):
+        """The pipeline must refuse to train on a feature set older than 48 hours.
+
+        event_time is Fractional epoch seconds: the wall-clock time the Lab 2
+        feature job ran, NOT the cutoff T. If this fails, re-run the
+        northstar-dev-feature-engineer Glue job (~90 s) and push again.
+        """
+        max_age_hours = 48
+        assert "event_time" in features_df.columns, "Feature set has no event_time column"
+        latest = float(features_df["event_time"].max())
+        age_hours = (time.time() - latest) / 3600
+        written = pd.Timestamp(latest, unit="s", tz="UTC")
+
+        # A timestamp in the future means event_time is not wall-clock epoch seconds
+        assert age_hours > -1, (
+            f"Latest event_time {written} is in the future - is event_time really epoch seconds?"
+        )
+        assert age_hours < max_age_hours, (
+            f"Features are {age_hours:.1f} hours old (written {written}); the limit is "
+            f"{max_age_hours}h. Re-run the northstar-dev-feature-engineer Glue job."
+        )
 
 
 # ── Cross-dataset consistency ─────────────────────────────────────────────────
