@@ -437,10 +437,11 @@ def _champion_auc(sm, s3, package_arn):
     """AUC of a registered package: lineage metadata if present, else the
     evaluation_metrics.json that ModelMetrics points at."""
     pkg = sm.describe_model_package(ModelPackageName=package_arn)
-    meta = pkg.get("CustomerMetadataProperties", {})
+    meta = pkg.get("CustomerMetadataProperties") or {}
     if "auc_roc" in meta:
         return float(meta["auc_roc"])
-    uri = pkg["ModelMetrics"]["ModelStatistics"]["S3Uri"]
+    # RegisterModel's ModelMetrics(model_statistics=...) lands under ModelQuality.Statistics
+    uri = pkg["ModelMetrics"]["ModelQuality"]["Statistics"]["S3Uri"]
     bucket, _, key = uri[len("s3://"):].partition("/")
     metrics = json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
     return float(metrics["auc_roc"])

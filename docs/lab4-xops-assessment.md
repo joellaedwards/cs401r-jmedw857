@@ -2,7 +2,25 @@
 
 ## Pipeline Stage Mapping
 
-<!-- TODO: map the five phases (Source, Test, Build, Evaluate, Register) to CodePipeline stages and give the rationale for CodePipeline. -->
+The pipeline is AWS CodePipeline + CodeBuild, defined as one CloudFormation stack (`pipeline.yaml`), with the build steps in `buildspec.yml`. The five required phases run inside three CodePipeline stages:
+
+| Phase | CodePipeline stage | Where it happens |
+|---|---|---|
+| 1. Source | `Source` | CodeStar connection pulls `main` from GitHub on every push |
+| 2. Test | `Build` | `buildspec.yml` `pre_build`: `pytest tests/test_data.py` and `tests/test_features.py`. A failure stops the build here, before any training |
+| 3. Build | `Build` | `buildspec.yml` `build`: `models/churn/pipeline_definition.py --upsert` creates or updates the SageMaker Pipeline, then a spot training job runs `models/churn/train_sagemaker.py`, which calls `churn_model.train()` |
+| 4. Evaluate | `Build` | The promotion gates in `evaluate_model()` raise inside training, so a failing model never registers; then `pytest tests/test_model.py tests/test_fairness.py` checks the trained artifact, its metrics and the champion regression |
+| 5. Register | `Build` (SageMaker `RegisterModel` step) | The model is registered in `northstar-churn-models` as `PendingManualApproval`. If a later CodeBuild test fails, `post_build` sets that package to `Rejected` |
+| Human decision | `ManualApproval` | SNS-notified approval before anything is promoted |
+
+A CodePipeline stage is a deployment boundary, not a logical step. Splitting the five phases into five stages would mean handing the model artifact between stages and running a CodeBuild project per stage, which adds cost and failure points without adding any control. The one boundary that matters, the human promotion decision, is its own stage.
+
+**Why CodePipeline rather than GitHub Actions:**
+
+- **No AWS credentials in GitHub.** The build runs inside AWS under IAM roles, so nothing secret is stored in this public repository or its settings.
+- **Native integration** with what the pipeline uses: SageMaker Pipelines and the Model Registry, the CloudWatch `FailedBuilds` metric behind the `northstar-ci-build-failure` alarm, the SNS topic, and a built-in manual approval stage.
+- **Infrastructure as code:** the whole CI setup is one CloudFormation stack, so it can be recreated or torn down with one command.
+- **Trade-offs:** it ties the pipeline to AWS, its console is less convenient than GitHub's Actions tab, and build minutes are billed (a few cents per run).
 
 ## Champion-Challenger
 
