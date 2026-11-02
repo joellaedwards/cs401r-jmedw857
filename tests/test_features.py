@@ -358,3 +358,6 @@ class TestFullFeatureSet:
         # one category out of 8, and the single order was online
         assert row["category_diversity_score"] == pytest.approx(1 / 8)
         assert row["online_to_store_ratio"] == pytest.approx(1.0)
+
+    def test_deliberate_failure_for_lab4_demo(self):
+        assert False, "Deliberate failure: Lab 4 failure demo"
