@@ -2,11 +2,11 @@
 
 ## 1. Deployment strategy and rationale
 
-**Strategy:** a real-time SageMaker endpoint, `northstar-churn-prod`, rolled out as a canary. Two production variants run on one endpoint: `champion` (v7) takes 90% of traffic and `canary` (v8) takes 10% (`deployment/configs/endpoint-config-canary.json`).
+**Strategy:** a real-time endpoint, `northstar-churn-prod`, rolled out as a canary. `champion` (v7) gets 90% of traffic and `canary` (v8) gets 10% (`deployment/configs/endpoint-config-canary.json`).
 
-**Why real-time.** NorthStar has two consumers of churn scores. The weekly retention campaign needs every active customer scored by Monday 6 AM ET. The offer generation system has a 2-second response budget and puts each customer's `churn_probability` into its prompt (`offer_generation/prompts.py`), so it needs a current score on demand. A weekly batch job alone would hand the offer system a score up to 7 days stale. One endpoint covers both consumers: the Monday job calls the same endpoint, and at about 4 ms per call that run finishes well before the deadline. Batch Transform would be cheaper for the weekly job, and it can be added later as a second consumer of the same approved model package.
+**Why real-time.** Churn scores have two consumers. The weekly retention campaign needs every customer scored by Monday 6 AM ET. The offer system has a 2-second budget and uses `churn_probability` in its prompt, so it needs a current score on demand; a weekly batch alone would be up to 7 days stale. One endpoint serves both. Batch Transform could be added later for the cheaper weekly run.
 
-**Why canary.** The churn score decides which customers get retention offers, so a bad model either misses customers who are about to churn or spends offer margin on customers who were never at risk. Offline, v8 roughly ties v7 (AUC 0.7845 vs. 0.7855) but has a smaller fairness gap. Offline metrics cannot settle that, so v8 has to prove itself on live traffic. A 10% canary limits how many customers a bad model can affect, and rollback is a weight change with no redeploy. Blue/green would run two full endpoints and switch all traffic at once.
+**Why canary.** The score decides who gets retention offers, so a bad model wastes offer margin or misses churners. v8 roughly ties v7 offline (AUC 0.7845 vs. 0.7855) but is fairer, so it has to prove itself on live traffic. A 10% canary limits how many customers are exposed, and rollback is just a weight change. Blue/green switches all traffic at once, so a weak model would reach every customer.
 
 ## 2. Pre-deployment checklist
 
@@ -39,10 +39,37 @@ If any criterion fails, the package is set to `Rejected` and deployment stops.
 
 ## 3. Rollback criteria
 
+**Trigger:** canary `ModelLatency` p95 above **200000 µs (200 ms)** in 3 of 5 one-minute periods. The alarm `northstar-churn-rollback-canary-latency` is defined in `deployment/configs/rollback-alarm.json`. `ModelLatency` is reported in microseconds, so 200 ms is written as 200000.
+
+Normal latency for this model is about 4 ms, so the threshold sits roughly 50× above normal. It catches a canary that is actually failing without firing on one-off slow requests.
+
+**Who decides:** the on-call ML Engineer makes the rollback call and does not need approval first. The alarm has no automatic action, so a person always confirms the breach before acting. The ML Lead is informed afterwards.
+
+**Action:** `bash deployment/configs/rollback-action.sh` sets the canary's weight to 0 and the champion's to 1, then waits for `InService` (about 90 s, with no dropped requests). Rollback stops the canary from serving, but its instance keeps billing until teardown (section 7).
+
 ## 4. Monitoring window
+
+**Production:** the canary runs for 48 h before promotion. **Lab:** this was compressed to an observed window from 20:51 UTC to <!-- TODO end time --> on 2026-11-13, and then the canary was rolled back.
+
+**Clean means:** the rollback alarm stays `OK`, the canary returns no 5xx errors, and the observed split stays near 9:1 (200 calls gave canary 16 / champion 184).
+
+**Observed:** canary `ModelLatency` averaged 4.6 ms (max 20.6 ms) and champion averaged 4.0 ms (max 22.7 ms). Both were far under the 200 ms threshold, and the rollback alarm stayed `OK` for the whole window.
+
+**What the compression misses:** a short window with a few hundred synthetic calls only catches outright failures. A 48 h window would include real traffic peaks and the Monday scoring run, show whether the champion actually scales out, and collect enough canary calls to compare v8's score distribution with v7's. In production, the team would also watch `Invocation5XXErrors` and compare canary vs. champion scores from `datacapture/`.
 
 ## 5. Stakeholder notifications
 
+| Role | Deployment start | Promotion | Rollback |
+|---|---|---|---|
+| ML Lead | Start time, versions, rollback threshold | Window results; signs off | Alarm state, cause |
+| On-call ML Engineer | Runs it; watches alarm | Runs weight change | Runs `rollback-action.sh` |
+| Retention Marketing | Heads-up: scores may shift | Which model scores Monday's run | Champion still scoring; check recent lists |
+| Offer System Owner | Endpoint name unchanged | Score source changed | Brief `Updating` status, no downtime |
+
 ## 6. Post-deployment review
+
+- **When:** within 5 business days after promotion or rollback.
+- **Who:** ML Lead (chair) and the on-call ML Engineer who ran the deployment. Retention Marketing and the Offer System Owner join if their systems were affected.
+- **Artifact:** `docs/reviews/<date>-churn-<version>.md`, covering the timeline, the window metrics (latency, errors, traffic split), the decision and why, and follow-up actions with owners.
 
 ## 7. Resource cleanup
