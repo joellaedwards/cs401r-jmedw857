@@ -15,7 +15,7 @@
 Only an `Approved` version in the Model Registry group `northstar-churn-models` is deployed. Training registers versions as `PendingManualApproval`.
 
 - **Approver:** ML Lead (model owner); I acted in that role.
-- **Version:** v7 (commit `0449f2e2`), approved 2026-11-12.
+- **Version:** v7 (commit `0449f2e2`), approved 2026-11-12. v8 (canary) passed the same gates (AUC 0.7845) and was approved the same day.
 - **Criteria:** the Lab 4 promotion gates. With no current champion, the baseline is the recency-only model.
 
 | Criterion | Threshold | v7 |
@@ -49,7 +49,7 @@ Normal latency for this model is about 4 ms, so the threshold sits roughly 50× 
 
 ## 4. Monitoring window
 
-**Production:** the canary runs for 48 h before promotion. **Lab:** this was compressed to an observed window from 20:51 UTC to <!-- TODO end time --> on 2026-11-13, and then the canary was rolled back.
+**Production:** the canary runs for 48 h before promotion. **Lab:** this was compressed to an observed window from 20:51 to 22:51 UTC (2 h) on 2026-11-13, and then the canary was rolled back.
 
 **Clean means:** the rollback alarm stays `OK`, the canary returns no 5xx errors, and the observed split stays near 9:1 (200 calls gave canary 16 / champion 184).
 
@@ -73,3 +73,10 @@ Normal latency for this model is about 4 ms, so the threshold sits roughly 50× 
 - **Artifact:** `docs/reviews/<date>-churn-<version>.md`, covering the timeline, the window metrics (latency, errors, traffic split), the decision and why, and follow-up actions with owners.
 
 ## 7. Resource cleanup
+
+In order, after the window closes:
+
+1. `bash deployment/configs/rollback-action.sh` (canary to weight 0).
+2. `bash scripts/teardown-lab5.sh` deletes scaling, alarms, the endpoint, endpoint configs and models.
+3. **Verify:** every line of `docs/lab5-teardown-output.txt` reads `OK`.
+4. When the data platform is no longer needed: `bash scripts/teardown-lab2.sh`.

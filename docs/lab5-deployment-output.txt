@@ -125,3 +125,13 @@ Lab 5 deployment evidence - account 860366539138
 
 ===== 4. observed traffic split at 9:1  (2026-11-13T20:51:29Z) =====
 canary 16 / champion 184   (n=200)
+
+===== 5. after rollback: weights, then observed split  (2026-11-13T22:52:44Z) =====
+champion	1.0
+canary	0.0
+champion 100   (n=100)
+
+===== 6. after teardown: live API  (2026-11-13T22:56:54Z) =====
+endpoints:        0
+endpoint configs: 0
+scalable targets: 0
