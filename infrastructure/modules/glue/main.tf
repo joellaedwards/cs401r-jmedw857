@@ -39,9 +39,10 @@ resource "aws_glue_job" "transform" {
   connections       = [aws_glue_connection.this.name]
 
   default_arguments = {
-    "--database_name" = aws_glue_catalog_database.this.name
-    "--table_name"    = "customers"
-    "--output_path"   = "s3://${var.bucket_name}/processed/customers/"
+    "--database_name"  = aws_glue_catalog_database.this.name
+    "--table_name"     = "customers"
+    "--output_path"    = "s3://${var.bucket_name}/processed/customers/"
+    "--enable-metrics" = "true" # Lab 6: publish job metrics to the Glue namespace
   }
 
   command {
@@ -71,6 +72,7 @@ resource "aws_glue_job" "feature_engineer" {
     "--output_path"        = "s3://${var.bucket_name}/features/customers/"
     "--feature_group_name" = var.feature_group_name
     "--region"             = var.aws_region
+    "--enable-metrics"     = "true" # Lab 6: publish job metrics to the Glue namespace
   }
 
   command {
