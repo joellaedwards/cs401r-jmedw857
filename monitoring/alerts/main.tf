@@ -58,8 +58,9 @@ locals {
   tiers = {
     p1 = "P1: wake on-call ML engineer AND page the ML engineering manager"
     p2 = "P2: page on-call ML engineer"
-    p3 = "P3: post to #northstar-ml-alerts Slack AND open a ticket"
-    p4 = "P4: open a ticket only (next business day)"
+    # SNS tag values allow only letters, digits, spaces and _ . : / = + - @
+    p3 = "P3: post to northstar-ml-alerts Slack channel AND open a ticket"
+    p4 = "P4: open a ticket only - next business day"
   }
 }
 
