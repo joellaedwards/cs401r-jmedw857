@@ -12,6 +12,10 @@
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  bucket_arn = "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}"
+}
+
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
@@ -136,6 +140,15 @@ resource "aws_iam_policy" "ml_engineer" {
         Resource = "*"
       },
       {
+        Sid      = "EndpointInstanceMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+        Condition = {
+          StringEquals = { "cloudwatch:namespace" = "/aws/sagemaker/Endpoints" }
+        }
+      },
+      {
         Sid       = "PassSelfToSageMaker"
         Effect    = "Allow"
         Action    = ["iam:PassRole"]
@@ -215,7 +228,9 @@ resource "aws_iam_policy" "data_engineer" {
         Resource = [
           "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}/raw/*",
           "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}/processed/*",
-          "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}/features/*"
+          "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}/features/*",
+          "${local.bucket_arn}/processed_$folder$",
+          "${local.bucket_arn}/features_$folder$"
         ]
       },
       {
@@ -235,6 +250,15 @@ resource "aws_iam_policy" "data_engineer" {
         Effect   = "Allow"
         Action   = ["s3:ListBucket", "s3:GetBucketLocation", "s3:GetBucketAcl"]
         Resource = "arn:aws:s3:::${var.project}-${var.environment}-data-${data.aws_caller_identity.current.account_id}"
+      },
+      {
+        Sid      = "GlueJobMetrics"
+        Effect   = "Allow"
+        Action   = ["cloudwatch:PutMetricData"]
+        Resource = "*"
+        Condition = {
+          StringEquals = { "cloudwatch:namespace" = "Glue" }
+        }
       },
       {
         Sid    = "FeatureStore"
@@ -332,3 +356,79 @@ resource "aws_iam_role_policy_attachment" "model_monitor" {
   policy_arn = aws_iam_policy.model_monitor.arn
 }
 
+
+# -- ModelMonitorExecution (Lab 6) --------------------------------------------
+# Service EXECUTION identity for the Evidently processing job: pulls the sklearn
+# image, reads datacapture/ and monitoring/, writes only under monitoring/.
+# Distinct from the read-only ModelMonitor OBSERVER role above.
+resource "aws_iam_role" "model_monitor_execution" {
+  name = "${var.project}-${var.environment}-ModelMonitorExecution"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "sagemaker.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_policy" "model_monitor_execution" {
+  name        = "${var.project}-${var.environment}-ModelMonitorExecutionPolicy"
+  description = "Evidently drift job: pull the sklearn image, read datacapture and monitoring, write monitoring reports"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECRPullProcessingImage"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid      = "S3BucketList"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket", "s3:GetBucketLocation"]
+        Resource = local.bucket_arn
+      },
+      {
+        Sid    = "ReadCaptureBaselineAndCode"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "${local.bucket_arn}/datacapture/*",
+          "${local.bucket_arn}/monitoring/*"
+        ]
+      },
+      {
+        Sid      = "WriteMonitoringReports"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:AbortMultipartUpload"]
+        Resource = "${local.bucket_arn}/monitoring/*"
+      },
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:*:*:log-group:/aws/sagemaker/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "model_monitor_execution" {
+  role       = aws_iam_role.model_monitor_execution.name
+  policy_arn = aws_iam_policy.model_monitor_execution.arn
+}

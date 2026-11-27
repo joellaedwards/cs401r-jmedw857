@@ -26,3 +26,8 @@ output "sagemaker_domain_id" {
   description = "ID of the SageMaker Domain"
   value       = module.sagemaker.domain_id
 }
+
+output "model_monitor_execution_role_arn" {
+  description = "Pass as --role-arn to monitoring/run_evidently_job.py (Lab 6)"
+  value       = module.iam.model_monitor_execution_role_arn
+}

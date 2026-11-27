@@ -83,12 +83,16 @@ FEATURE_COLUMNS = [
 # working starting point that matches the reference run in the handout. Task 2
 # asks you to choose the test and threshold for each feature you monitor and
 # justify the choice -- edit this to match your plan.
+#
+# PSI > 0.2 on the top 3 features by XGBoost gain (Lab 3 feature importance:
+# purchase_frequency_180d ~130, days_since_last_purchase ~130,
+# purchase_frequency_30d ~75). KS p < 0.05 on the next two (~71, ~52).
 DRIFT_PLAN = {
+    "purchase_frequency_180d": ("psi", 0.2),
     "days_since_last_purchase": ("psi", 0.2),
-    "purchase_frequency_30d":   ("psi", 0.2),
-    "avg_order_value":          ("psi", 0.2),
-    "category_diversity_score": ("ks", 0.05),
-    "total_spend_90d":          ("ks", 0.05),
+    "purchase_frequency_30d": ("psi", 0.2),
+    "purchase_frequency_90d": ("ks", 0.05),
+    "avg_basket_size_6m": ("ks", 0.05),
 }
 
 IN_BASE = "/opt/ml/processing/input/baseline"
@@ -98,8 +102,6 @@ OUT = "/opt/ml/processing/output"
 
 def drift_direction(method: str, value: float, threshold: float) -> bool:
     """Return True if this value means DRIFT, respecting each test's semantics.
-
-    TODO (Lab 6 Task 1): implement this function.
 
     `method` is the Evidently test name from DRIFT_PLAN ("psi", "ks", ...),
     `value` is the number Evidently returned for that feature, and `threshold`
@@ -113,21 +115,49 @@ def drift_direction(method: str, value: float, threshold: float) -> bool:
     run_evidently_job.py refuses to launch while this function still raises
     NotImplementedError.
     """
-    raise NotImplementedError(
-        "drift_direction() is not implemented -- see the TODO in "
-        "monitoring/evidently_drift.py")
+    # Distance statistics grow as the distributions move apart: drift is ABOVE.
+    distance_tests = {"psi", "jensenshannon", "wasserstein", "kl_div", "hellinger"}
+    # Hypothesis tests return a p-value, which shrinks as evidence of a
+    # difference grows: drift is BELOW.
+    pvalue_tests = {
+        "ks",
+        "chisquare",
+        "z",
+        "t_test",
+        "mannw",
+        "anderson",
+        "cramer_von_mises",
+        "fisher_exact",
+        "g_test",
+        "epps_singleton",
+    }
+
+    m = method.lower()
+    if m in distance_tests:
+        return value > threshold
+    if m in pvalue_tests:
+        return value < threshold
+    # An unknown test must fail loudly. Guessing a direction is exactly the
+    # silent-inversion bug this function exists to prevent.
+    raise ValueError(
+        f"drift_direction(): unknown test {method!r}; add it to "
+        "the distance or p-value set before using it in DRIFT_PLAN"
+    )
 
 
 def load_baseline(path: str) -> pd.DataFrame:
     files = [f for f in os.listdir(path) if f.endswith(".csv")]
     if not files:
         sys.exit(f"FATAL: no CSV in {path}. Did the baseline upload succeed?")
-    df = pd.concat([pd.read_csv(os.path.join(path, f)) for f in files],
-                   ignore_index=True)
+    df = pd.concat(
+        [pd.read_csv(os.path.join(path, f)) for f in files], ignore_index=True
+    )
     missing = [c for c in FEATURE_COLUMNS if c not in df.columns]
     if missing:
-        sys.exit(f"FATAL: baseline is missing {missing}. It must describe the "
-                 f"11 features the ENDPOINT receives, not the training frame.")
+        sys.exit(
+            f"FATAL: baseline is missing {missing}. It must describe the "
+            f"11 features the ENDPOINT receives, not the training frame."
+        )
     return df[FEATURE_COLUMNS]
 
 
@@ -171,17 +201,21 @@ def load_capture(path: str) -> pd.DataFrame:
                         try:
                             rows.append([float(v) for v in vals])
                         except ValueError:
-                            continue   # header line or non-numeric payload
+                            continue  # header line or non-numeric payload
 
     if found == 0:
-        sys.exit(f"FATAL: no capture files under {path}.\n"
-                 "Data capture is written ASYNCHRONOUSLY and lags several "
-                 "minutes behind your first invocation. Confirm objects exist "
-                 "in S3 before launching this job -- an empty prefix produces "
-                 "a confusing schema error, not a helpful 'no input' error.")
+        sys.exit(
+            f"FATAL: no capture files under {path}.\n"
+            "Data capture is written ASYNCHRONOUSLY and lags several "
+            "minutes behind your first invocation. Confirm objects exist "
+            "in S3 before launching this job -- an empty prefix produces "
+            "a confusing schema error, not a helpful 'no input' error."
+        )
     if not rows:
-        sys.exit(f"FATAL: {found} capture file(s) but 0 parseable rows with "
-                 f"{len(FEATURE_COLUMNS)} features. Check your payload shape.")
+        sys.exit(
+            f"FATAL: {found} capture file(s) but 0 parseable rows with "
+            f"{len(FEATURE_COLUMNS)} features. Check your payload shape."
+        )
     df = pd.DataFrame(rows, columns=FEATURE_COLUMNS)
 
     # Drop byte-identical payloads. canary_deploy_realtime.py checks the
@@ -195,16 +229,22 @@ def load_capture(path: str) -> pd.DataFrame:
     before = len(df)
     df = df.drop_duplicates().reset_index(drop=True)
     if len(df) < before:
-        print(f"dropped {before - len(df)} duplicate payload(s) "
-              f"(smoke-test or split-check traffic); {len(df)} distinct rows kept")
+        print(
+            f"dropped {before - len(df)} duplicate payload(s) "
+            f"(smoke-test or split-check traffic); {len(df)} distinct rows kept"
+        )
     return df
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--min-records", type=int, default=500,
-                    help="Refuse to report drift on a window smaller than this. "
-                         "Small windows produce false positives on clean data.")
+    ap.add_argument(
+        "--min-records",
+        type=int,
+        default=500,
+        help="Refuse to report drift on a window smaller than this. "
+        "Small windows produce false positives on clean data.",
+    )
     args = ap.parse_args()
 
     os.makedirs(OUT, exist_ok=True)
@@ -219,16 +259,19 @@ def main() -> int:
     # the data actually matched. Warn rather than silently mislead.
     underpowered = len(cur_df) < args.min_records
     if underpowered:
-        print(f"WARNING: only {len(cur_df)} captured records (<{args.min_records}). "
-              "Drift results on a window this small are not trustworthy. "
-              "Invoke the endpoint more and re-run.")
+        print(
+            f"WARNING: only {len(cur_df)} captured records (<{args.min_records}). "
+            "Drift results on a window this small are not trustworthy. "
+            "Invoke the endpoint more and re-run."
+        )
 
     dd = DataDefinition(numerical_columns=FEATURE_COLUMNS)
     ref = Dataset.from_pandas(ref_df, data_definition=dd)
     cur = Dataset.from_pandas(cur_df, data_definition=dd)
 
-    metrics = [ValueDrift(column=c, method=m, threshold=t)
-               for c, (m, t) in DRIFT_PLAN.items()]
+    metrics = [
+        ValueDrift(column=c, method=m, threshold=t) for c, (m, t) in DRIFT_PLAN.items()
+    ]
     metrics.append(DriftedColumnsCount(drift_share=0.3))
 
     result = Report(metrics).run(cur, ref)
@@ -248,15 +291,25 @@ def main() -> int:
         method, threshold = DRIFT_PLAN[col]
         value = float(m["value"])
         drifted = drift_direction(method, value, threshold)
-        per_feature[col] = {"method": method, "threshold": threshold,
-                            "value": value, "drifted": drifted}
+        per_feature[col] = {
+            "method": method,
+            "threshold": threshold,
+            "value": value,
+            "drifted": drifted,
+        }
         if drifted:
-            violations.append({
-                "feature": col, "method": method,
-                "value": value, "threshold": threshold,
-                "detail": (f"{method.upper()} {value:.4f} "
-                           f"{'<' if method == 'ks' else '>'} {threshold}"),
-            })
+            violations.append(
+                {
+                    "feature": col,
+                    "method": method,
+                    "value": value,
+                    "threshold": threshold,
+                    "detail": (
+                        f"{method.upper()} {value:.4f} "
+                        f"{'<' if method == 'ks' else '>'} {threshold}"
+                    ),
+                }
+            )
 
     summary = {
         "baseline_records": len(ref_df),
@@ -274,10 +327,11 @@ def main() -> int:
     print(f"\n{'feature':<28} {'test':<5} {'value':>12} {'thresh':>8}  drift")
     print("-" * 68)
     for col, d in per_feature.items():
-        print(f"{col:<28} {d['method']:<5} {d['value']:>12.4f} "
-              f"{d['threshold']:>8} {'  YES' if d['drifted'] else '   no'}")
-    print(f"\ndrift_detected={summary['drift_detected']} "
-          f"violations={len(violations)}")
+        print(
+            f"{col:<28} {d['method']:<5} {d['value']:>12.4f} "
+            f"{d['threshold']:>8} {'  YES' if d['drifted'] else '   no'}"
+        )
+    print(f"\ndrift_detected={summary['drift_detected']} violations={len(violations)}")
 
     # Exit 0 even when drift is found. Drift is a RESULT, not a job failure --
     # a non-zero exit here would make the processing job look broken and would
