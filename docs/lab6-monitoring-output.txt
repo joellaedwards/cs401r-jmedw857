@@ -1,0 +1,93 @@
+Lab 6 monitoring evidence - account 860366539138
+
+===== 1. Endpoint, variants, data capture  (2026-11-27T21:45:58Z) =====
+{
+    "Status": "InService",
+    "Config": "northstar-churn-canary-1795814388",
+    "Variants": [
+        {
+            "Name": "champion",
+            "Weight": 9.0
+        },
+        {
+            "Name": "canary",
+            "Weight": 1.0
+        }
+    ],
+    "Capture": {
+        "EnableCapture": true,
+        "CaptureStatus": "Started",
+        "CurrentSamplingPercentage": 100,
+        "DestinationS3Uri": "s3://northstar-dev-data-860366539138/datacapture/"
+    }
+}
+
+===== 2. Captured objects per variant  (2026-11-27T21:46:01Z) =====
+champion: 3 files
+canary: 3 files
+
+===== 3. Baseline in S3  (2026-11-27T21:46:06Z) =====
+2026-11-27 14:10:55     617983 baseline.csv
+
+===== 4. Drift jobs  (2026-11-27T21:46:08Z) =====
+{
+    "Job": "nsc-evidently-1795815255",
+    "Status": "Completed",
+    "Role": "arn:aws:iam::860366539138:role/northstar-dev-ModelMonitorExecution",
+    "Instance": "ml.t3.medium",
+    "Start": "2026-11-27T14:35:02.609000-07:00",
+    "End": "2026-11-27T14:37:11.671000-07:00"
+}
+
+===== 5. Business layer: custom metric  (2026-11-27T21:46:13Z) =====
+{
+    "Label": "ChurnAlertVolume",
+    "Datapoints": [
+        {
+            "Timestamp": "2026-11-27T13:45:00-07:00",
+            "Maximum": 251.0,
+            "Unit": "Count"
+        }
+    ]
+}
+
+===== 6. Model layer: drift metric  (2026-11-27T21:46:16Z) =====
+2026-11-27T14:35:00-07:00	0.0
+
+===== 7. Pipeline layer: recent Glue job runs  (2026-11-27T21:46:18Z) =====
+northstar-dev-transform	2026-11-27T14:04:01.192000-07:00	SUCCEEDED	133
+northstar-dev-feature-engineer	2026-11-27T14:07:24.909000-07:00	SUCCEEDED	167
+
+===== 8. Application layer: ModelLatency p50/p95/p99 on champion (MICROSECONDS)  (2026-11-27T21:46:22Z) =====
+2026-11-27T13:45:00-07:00	3486.3194673729195	5156.701067686258	7766.94307050662
+
+===== 9. Infrastructure layer: CPU and memory on champion (last 30 min, 5-min averages)  (2026-11-27T21:46:24Z) =====
+-- CPUUtilization
+2026-11-27T14:25:00-07:00	36.02646073591201
+2026-11-27T14:30:00-07:00	0.0652431500935978
+2026-11-27T14:35:00-07:00	0.06663286349113968
+2026-11-27T14:40:00-07:00	0.06624996824922265
+-- MemoryUtilization
+2026-11-27T14:25:00-07:00	8.443117477035159
+2026-11-27T14:30:00-07:00	9.881315331010454
+2026-11-27T14:35:00-07:00	9.881315331010454
+2026-11-27T14:40:00-07:00	9.881315331010454
+
+===== 10. Alarms: threshold and state  (2026-11-27T21:46:28Z) =====
+northstar-churn-rollback-latency	ModelLatency	200000.0	OK
+northstar-maintenance-window	MaintenanceWindow	1.0	OK
+northstar-p1-endpoint-5xx-errors	Invocation5XXErrors	5.0	OK
+northstar-p1-latency-p95-over-500ms	ModelLatency	500000.0	OK
+northstar-p2-churn-alert-volume-drop	ChurnAlertVolumeChangePct	-30.0	OK
+northstar-p2-latency-p95-over-200ms	ModelLatency	200000.0	OK
+northstar-p3-drift-detected-signal	DriftDetected	1.0	OK
+northstar-p3-endpoint-cpu-high	CPUUtilization	80.0	OK
+northstar-p4-endpoint-memory-high	MemoryUtilization	85.0	OK
+
+===== 11. Dashboard  (2026-11-27T21:46:30Z) =====
+NorthStar-AI-Platform	2026-11-27T14:19:50-07:00
+
+===== 12. After teardown: live API  (2026-11-27T21:52:11Z) =====
+endpoints:               0
+running processing jobs: 0
+northstar alarms:        0

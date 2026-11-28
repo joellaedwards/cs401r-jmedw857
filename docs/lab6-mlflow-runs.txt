@@ -1,0 +1,15 @@
+mlflow.search_runs(experiment 'northstar-drift')
+
+                                                                     0
+run_id                                be776559011a4935ad00d50ca37d4a96
+tags.mlflow.runName                     drift-nsc-evidently-1795815255
+status                                                        FINISHED
+start_time                            2026-11-27 21:39:58.874000+00:00
+params.captured_records                                            627
+params.baseline_records                                           9999
+metrics.violation_count                                            0.0
+metrics.ks_avg_basket_size_6m                                 0.993742
+metrics.ks_purchase_frequency_90d                             0.999393
+metrics.psi_days_since_last_purchase                          0.006092
+metrics.psi_purchase_frequency_180d                           0.020116
+metrics.psi_purchase_frequency_30d                            0.014396

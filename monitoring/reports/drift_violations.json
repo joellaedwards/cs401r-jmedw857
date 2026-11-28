@@ -1,0 +1,41 @@
+{
+  "baseline_records": 9999,
+  "captured_records": 627,
+  "features_evaluated": 5,
+  "underpowered_window": false,
+  "drift_detected": false,
+  "violation_count": 0,
+  "violations": [],
+  "per_feature": {
+    "purchase_frequency_180d": {
+      "method": "psi",
+      "threshold": 0.2,
+      "value": 0.020115663015343867,
+      "drifted": false
+    },
+    "days_since_last_purchase": {
+      "method": "psi",
+      "threshold": 0.2,
+      "value": 0.0060916174686759415,
+      "drifted": false
+    },
+    "purchase_frequency_30d": {
+      "method": "psi",
+      "threshold": 0.2,
+      "value": 0.014396485232210697,
+      "drifted": false
+    },
+    "purchase_frequency_90d": {
+      "method": "ks",
+      "threshold": 0.05,
+      "value": 0.9993928321139085,
+      "drifted": false
+    },
+    "avg_basket_size_6m": {
+      "method": "ks",
+      "threshold": 0.05,
+      "value": 0.9937419757158797,
+      "drifted": false
+    }
+  }
+}

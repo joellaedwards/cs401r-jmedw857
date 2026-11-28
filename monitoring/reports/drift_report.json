@@ -1,0 +1,72 @@
+{
+  "metrics": [
+    {
+      "id": "9aa5542f23f6b6f5ae65b5989aceace5",
+      "metric_name": "ValueDrift(column=purchase_frequency_180d,method=psi,threshold=0.2)",
+      "config": {
+        "type": "evidently:metric_v2:ValueDrift",
+        "column": "purchase_frequency_180d",
+        "method": "psi",
+        "threshold": 0.2
+      },
+      "value": 0.020115663015343867
+    },
+    {
+      "id": "dbca429d06e7fc1ff624605c315db8df",
+      "metric_name": "ValueDrift(column=days_since_last_purchase,method=psi,threshold=0.2)",
+      "config": {
+        "type": "evidently:metric_v2:ValueDrift",
+        "column": "days_since_last_purchase",
+        "method": "psi",
+        "threshold": 0.2
+      },
+      "value": 0.0060916174686759415
+    },
+    {
+      "id": "f60c6f59de3e84ef7bcb53ee82db2dda",
+      "metric_name": "ValueDrift(column=purchase_frequency_30d,method=psi,threshold=0.2)",
+      "config": {
+        "type": "evidently:metric_v2:ValueDrift",
+        "column": "purchase_frequency_30d",
+        "method": "psi",
+        "threshold": 0.2
+      },
+      "value": 0.014396485232210697
+    },
+    {
+      "id": "f47ea7f962cea5ce1e94af87f3385c41",
+      "metric_name": "ValueDrift(column=purchase_frequency_90d,method=ks,threshold=0.05)",
+      "config": {
+        "type": "evidently:metric_v2:ValueDrift",
+        "column": "purchase_frequency_90d",
+        "method": "ks",
+        "threshold": 0.05
+      },
+      "value": 0.9993928321139085
+    },
+    {
+      "id": "d7f5859b66defa7e593867d464468929",
+      "metric_name": "ValueDrift(column=avg_basket_size_6m,method=ks,threshold=0.05)",
+      "config": {
+        "type": "evidently:metric_v2:ValueDrift",
+        "column": "avg_basket_size_6m",
+        "method": "ks",
+        "threshold": 0.05
+      },
+      "value": 0.9937419757158797
+    },
+    {
+      "id": "8a8b69ee77cd8773c291cf3f6f78d5f0",
+      "metric_name": "DriftedColumnsCount(drift_share=0.3)",
+      "config": {
+        "type": "evidently:metric_v2:DriftedColumnsCount",
+        "drift_share": 0.3
+      },
+      "value": {
+        "count": 0.0,
+        "share": 0.0
+      }
+    }
+  ],
+  "tests": []
+}
